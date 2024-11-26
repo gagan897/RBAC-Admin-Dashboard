@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBAC Control Panel</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #5dc9f0, #d3dff5);
+            color: #333;
+        }
+        header {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        main {
+            margin: 2rem auto;
+            max-width: 90%;
+        }
+        .section-container {
+            background-color: rgba(0, 0, 0, 0.15);
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        h2 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        button {
+            background: #6a11cb;
+            color: white;
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: #2575fc;
+            transform: scale(1.05);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f3f3f3;
+            color: #555;
+        }
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+        .popup-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .popup-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 400px;
+            animation: slideDown 0.4s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+        .close-popup {
+            float: right;
+            font-size: 1.5rem;
+            color: #6a11cb;
+            cursor: pointer;
+        }
+        input, select {
+            width: 100%;
+            padding: 0.7rem;
+            margin: 0.75rem 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        input:focus, select:focus {
+            border-color: #6a11cb;
+            outline: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-50px); }
+            to { transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>RBAC Control Panel</h1>
+    </header>
+    <main>
+        <section class="section-container">
+            <h2>Manage Users</h2>
+            <button onclick="triggerPopup('user')">+ Add New User</button>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Full Name</th>
+                        <th>Contact Email</th>
+                        <th>Assigned Role</th>
+                        <th>Current Status</th>
+                        <th>Options</th>
+                    </tr>
+                </thead>
+                <tbody id="userDataList"></tbody>
+            </table>
+        </section>
+        <section class="section-container">
+            <h2>Manage Roles</h2>
+            <button onclick="triggerPopup('role')">+ Add New Role</button>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Role Title</th>
+                        <th>Permissions Assigned</th>
+                        <th>Options</th>
+                    </tr>
+                </thead>
+                <tbody id="roleDataList"></tbody>
+            </table>
+        </section>
+    </main>
+    <div id="popupOverlay" class="popup-overlay">
+        <div class="popup-content">
+            <span onclick="closePopup()" class="close-popup">&times;</span>
+            <h3 id="popupHeader"></h3>
+            <form id="popupForm" onsubmit="processForm(event)">
+                <input type="hidden" id="popupCategory">
+                <input type="hidden" id="recordId">
+                <input type="text" id="inputName" placeholder="Enter Name" required>
+                <input type="email" id="inputEmail" placeholder="Enter Email (if applicable)">
+                <input type="text" id="inputRole" placeholder="Enter Role">
+                <select id="inputStatus">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        let userData = [];
+        let roleData = [];
+        const popupOverlay = document.getElementById('popupOverlay');
+        const userDataList = document.getElementById('userDataList');
+        const roleDataList = document.getElementById('roleDataList');
+        const popupHeader = document.getElementById('popupHeader');
+        const popupCategory = document.getElementById('popupCategory');
+        const recordId = document.getElementById('recordId');
+        const inputName = document.getElementById('inputName');
+        const inputEmail = document.getElementById('inputEmail');
+        const inputRole = document.getElementById('inputRole');
+        const inputStatus = document.getElementById('inputStatus');
+
+        function triggerPopup(category, id = null) {
+            popupOverlay.classList.add('show');
+            popupCategory.value = category;
+            recordId.value = id || '';
+            inputEmail.style.display = category === 'user' ? 'block' : 'none';
+            popupHeader.textContent = id ? `Edit ${category}` : `Add New ${category}`;
+            if (id) {
+                const data = category === 'user' ? userData.find(u => u.id === id) : roleData.find(r => r.id === id);
+                inputName.value = data.name;
+                inputEmail.value = data.email || '';
+                inputRole.value = data.role || '';
+                inputStatus.value = data.status || 'Active';
+            } else {
+                inputName.value = '';
+                inputEmail.value = '';
+                inputRole.value = '';
+                inputStatus.value = 'Active';
+            }
+        }
+
+        function closePopup() {
+            popupOverlay.classList.remove('show');
+        }
+
+        function updateTable() {
+            userDataList.innerHTML = userData.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td>${user.role}</td>
+                    <td>${user.status}</td>
+                    <td>
+                        <button onclick="triggerPopup('user', ${user.id})">Edit</button>
+                        <button onclick="removeRecord('user', ${user.id})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+            roleDataList.innerHTML = roleData.map(role => `
+                <tr>
+                    <td>${role.id}</td>
+                    <td>${role.name}</td>
+                    <td>${role.role}</td>
+                    <td>
+                        <button onclick="triggerPopup('role', ${role.id})">Edit</button>
+                        <button onclick="removeRecord('role', ${role.id})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function removeRecord(category, id) {
+            if (category === 'user') {
+                userData = userData.filter(user => user.id !== id);
+            } else {
+                roleData = roleData.filter(role => role.id !== id);
+            }
+            updateTable();
+        }
+
+        function processForm(event) {
+            event.preventDefault();
+            const category = popupCategory.value;
+            const id = recordId.value ? parseInt(recordId.value) : Date.now();
+            const data = {
+                id,
+                name: inputName.value,
+                email: inputEmail.value,
+                role: inputRole.value,
+                status: inputStatus.value
+            };
+            if (recordId.value) {
+                if (category === 'user') {
+                    const index = userData.findIndex(user => user.id === id);
+                    userData[index] = data;
+                } else {
+                    const index = roleData.findIndex(role => role.id === id);
+                    roleData[index] = data;
+                }
+            } else {
+                if (category === 'user') {
+                    userData.push(data);
+                } else {
+                    roleData.push(data);
+                }
+            }
+            closePopup();
+            updateTable();
+        }
+
+        updateTable();
+    </script>
+</body>
+</html>
